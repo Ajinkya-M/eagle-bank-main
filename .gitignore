@@ -1,0 +1,53 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+.npmrc
+.yarn/
+.cache/
+.eslintcache
+
+# TypeScript
+*.tsbuildinfo
+
+# Compiled JavaScript
+/dist/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# SQLite Database
+*.sqlite
+*.db
+*.db-*
+/src/db/*.sqlite
+/src/db/*.db
+
+# Logs
+logs/
+*.log
+
+# Editor/OS specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Cursor IDE
+.cursor/
+.cursorrules
+.cursorignore
+
+# Testing
+coverage/
+test-database.sqlite
+*.test.sqlite
+.env.test
+
+# Documentation
+Take Home coding test v2.pdf 
