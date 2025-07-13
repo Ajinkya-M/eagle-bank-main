@@ -2,7 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { connectDb, migrateDb } from './db/index';
 import userRoutes from './routes/userRoutes';
-import authRoutes from './routes/authRoutes'; 
+import authRoutes from './routes/authRoutes';
+import accountRoutes from './routes/accountRoutes'; 
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,7 @@ async function startServer(): Promise<void> {
     // Set up routes
     app.use('/v1/auth', authRoutes);
     app.use('/v1/users', userRoutes);
+    app.use('/v1/accounts', accountRoutes);
     
     // 3. Start the Express server
     app.listen(PORT, () => {

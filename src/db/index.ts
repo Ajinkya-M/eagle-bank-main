@@ -60,10 +60,77 @@ export const migrateDb = (db: Database): Promise<void> => {
         if (err) {
           console.error('Error creating users table:', err.message);
           reject(err);
-        } else {
-          console.log('Users table created successfully');
-          resolve();
+          return;
         }
+
+        console.log('Users table created successfully');
+
+        // Create bank_accounts table
+        const createBankAccountsTable = `
+          CREATE TABLE IF NOT EXISTS bank_accounts (
+            accountNumber TEXT PRIMARY KEY NOT NULL,
+            sortCode TEXT NOT NULL,
+            name TEXT NOT NULL,
+            accountType TEXT NOT NULL,
+            balance REAL NOT NULL DEFAULT 0.00,
+            currency TEXT NOT NULL,
+            userId TEXT NOT NULL,
+            createdTimestamp TEXT NOT NULL,
+            updatedTimestamp TEXT NOT NULL,
+            FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+          )
+        `;
+
+        db.run(createBankAccountsTable, (err) => {
+          if (err) {
+            console.error('Error creating bank_accounts table:', err.message);
+            reject(err);
+          } else {
+            console.log('Bank accounts table created successfully');
+            resolve();
+          }
+        });
+      });
+    });
+  });
+};
+
+/**
+ * Reset database (drop and recreate tables)
+ */
+export const resetDb = (db: Database): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not connected'));
+      return;
+    }
+
+    // Drop tables in reverse order (respecting foreign key constraints)
+    const dropBankAccountsTable = 'DROP TABLE IF EXISTS bank_accounts;';
+    const dropUsersTable = 'DROP TABLE IF EXISTS users;';
+
+    db.serialize(() => {
+      db.run(dropBankAccountsTable, (err) => {
+        if (err) {
+          console.error('Error dropping bank_accounts table:', err.message);
+          reject(err);
+          return;
+        }
+        console.log('Bank accounts table dropped successfully');
+
+        db.run(dropUsersTable, (err) => {
+          if (err) {
+            console.error('Error dropping users table:', err.message);
+            reject(err);
+          } else {
+            console.log('Users table dropped successfully');
+            // Recreate tables by calling migrateDb
+            migrateDb(db).then(() => {
+              console.log('Database reset completed successfully');
+              resolve();
+            }).catch(reject);
+          }
+        });
       });
     });
   });
