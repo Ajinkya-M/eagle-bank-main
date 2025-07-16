@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { CreateBankAccountRequest, BankAccountResponse, ListBankAccountsResponse } from '../models/accountModel';
+import { CreateBankAccountRequest, BankAccountResponse, ListBankAccountsResponse, UpdateBankAccountRequest } from '../models/accountModel';
 import { AuthRequest } from '../middleware/authMiddleware';
-import { createAccount as createAccountService, listAccounts as listAccountsService, fetchAccountByAccountNumber as fetchAccountByAccountNumberService } from '../services/accountService';
+import { createAccount as createAccountService, listAccounts as listAccountsService, fetchAccountByAccountNumber as fetchAccountByAccountNumberService, updateAccountByAccountNumber as updateAccountByAccountNumberService } from '../services/accountService';
 
 // Define error response interfaces (matching the OpenAPI spec)
 interface ErrorResponse {
@@ -22,6 +22,12 @@ interface BadRequestErrorResponse {
 const CreateBankAccountRequestSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   accountType: z.enum(['personal', 'business'])
+});
+
+// Zod schema for UpdateBankAccountRequest validation (all fields optional for PATCH)
+const UpdateBankAccountRequestSchema = z.object({
+  name: z.string().min(1, 'Name is required').optional(),
+  accountType: z.enum(['personal', 'business']).optional()
 });
 
 /**
@@ -147,5 +153,89 @@ export const fetchAccountByAccountNumber = async (req: AuthRequest, res: Respons
       message: 'An unexpected error occurred while fetching account details.'
     };
     res.status(500).json(errorResponse);
+  }
+};
+
+/**
+ * Update account by account number
+ */
+export const updateAccountByAccountNumber = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    // Get account number from request parameters
+    const accountNumberFromParams = req.params['accountNumber'];
+    
+    // Get authenticated user ID from the request
+    const authenticatedUserId = req.userId;
+    
+    if (!authenticatedUserId) {
+      res.status(401).json({
+        message: 'User ID not found in token'
+      });
+      return;
+    }
+
+    // Validate Request Body
+    const validatedBody = UpdateBankAccountRequestSchema.parse(req.body);
+
+    // Check for empty body after validation
+    if (Object.keys(validatedBody).length === 0) {
+      res.status(400).json({
+        message: 'No update data provided.',
+        details: [{ 
+          field: 'body', 
+          message: 'Request body cannot be empty for PATCH.', 
+          type: 'empty_body' 
+        }]
+      });
+      return;
+    }
+
+    // Filter out undefined values from validatedBody
+    const filteredUpdateData = Object.fromEntries(
+      Object.entries(validatedBody).filter(([_, value]) => value !== undefined)
+    ) as Partial<UpdateBankAccountRequest>;
+
+    // Call the account service to update the bank account
+    const updatedAccountResult = await updateAccountByAccountNumberService(accountNumberFromParams || '', filteredUpdateData, authenticatedUserId);
+
+    // Handle the result based on the returned value
+    if (updatedAccountResult === 'not-found') {
+      res.status(404).json({
+        message: 'Bank account was not found.'
+      });
+      return;
+    }
+
+    if (updatedAccountResult === 'forbidden') {
+      res.status(403).json({
+        message: 'The user is not allowed to update the bank account details.'
+      });
+      return;
+    }
+
+    // If we get here, updatedAccountResult is a BankAccountResponse object
+    res.status(200).json(updatedAccountResult);
+
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      // Handle Zod validation errors
+      const errorResponse: BadRequestErrorResponse = {
+        message: 'Invalid update data supplied.',
+        details: error.issues.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+          type: 'validation_error'
+        }))
+      };
+      
+      res.status(400).json(errorResponse);
+    } else {
+      // Handle unexpected errors
+      console.error('Error in updateAccountByAccountNumber:', error);
+      const errorResponse: ErrorResponse = {
+        message: 'An unexpected error occurred while updating account details.'
+      };
+      res.status(500).json(errorResponse);
+    }
   }
 };

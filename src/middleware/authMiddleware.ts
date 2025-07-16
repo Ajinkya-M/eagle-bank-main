@@ -4,6 +4,12 @@ import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 // Custom interface to extend Request with userId
 export interface AuthRequest extends Request {
   userId?: string;
+  // Extend params with specific route parameters for type safety
+  params: Request['params'] & {
+    userId?: string;
+    accountNumber?: string;
+    transactionId?: string;
+  };
 }
 
 /**

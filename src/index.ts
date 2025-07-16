@@ -35,7 +35,7 @@ async function startServer(): Promise<void> {
     // Set up routes
     app.use('/v1/auth', authRoutes);
     app.use('/v1/users', userRoutes);
-    app.use('/v1/accounts', accountRoutes);
+    app.use('/v1/accounts', accountRoutes); // This is the ONLY place accountRoutes (which contains nested transactionRoutes) should be mounted
     
     // 3. Start the Express server
     app.listen(PORT, () => {

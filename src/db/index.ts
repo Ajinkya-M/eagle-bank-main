@@ -85,10 +85,36 @@ export const migrateDb = (db: Database): Promise<void> => {
           if (err) {
             console.error('Error creating bank_accounts table:', err.message);
             reject(err);
-          } else {
-            console.log('Bank accounts table created successfully');
-            resolve();
+            return;
           }
+
+          console.log('Bank accounts table created successfully');
+
+          // Create transactions table
+          const createTransactionsTable = `
+            CREATE TABLE IF NOT EXISTS transactions (
+              id TEXT PRIMARY KEY NOT NULL,
+              accountId TEXT NOT NULL,
+              userId TEXT NOT NULL,
+              amount REAL NOT NULL,
+              currency TEXT NOT NULL,
+              type TEXT NOT NULL,
+              reference TEXT,
+              createdTimestamp TEXT NOT NULL,
+              FOREIGN KEY (accountId) REFERENCES bank_accounts(accountNumber) ON DELETE CASCADE,
+              FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+            )
+          `;
+
+          db.run(createTransactionsTable, (err) => {
+            if (err) {
+              console.error('Error creating transactions table:', err.message);
+              reject(err);
+            } else {
+              console.log('Transactions table created successfully');
+              resolve();
+            }
+          });
         });
       });
     });
@@ -106,30 +132,40 @@ export const resetDb = (db: Database): Promise<void> => {
     }
 
     // Drop tables in reverse order (respecting foreign key constraints)
+    const dropTransactionsTable = 'DROP TABLE IF EXISTS transactions;';
     const dropBankAccountsTable = 'DROP TABLE IF EXISTS bank_accounts;';
     const dropUsersTable = 'DROP TABLE IF EXISTS users;';
 
     db.serialize(() => {
-      db.run(dropBankAccountsTable, (err) => {
+      db.run(dropTransactionsTable, (err) => {
         if (err) {
-          console.error('Error dropping bank_accounts table:', err.message);
+          console.error('Error dropping transactions table:', err.message);
           reject(err);
           return;
         }
-        console.log('Bank accounts table dropped successfully');
+        console.log('Transactions table dropped successfully');
 
-        db.run(dropUsersTable, (err) => {
+        db.run(dropBankAccountsTable, (err) => {
           if (err) {
-            console.error('Error dropping users table:', err.message);
+            console.error('Error dropping bank_accounts table:', err.message);
             reject(err);
-          } else {
-            console.log('Users table dropped successfully');
-            // Recreate tables by calling migrateDb
-            migrateDb(db).then(() => {
-              console.log('Database reset completed successfully');
-              resolve();
-            }).catch(reject);
+            return;
           }
+          console.log('Bank accounts table dropped successfully');
+
+          db.run(dropUsersTable, (err) => {
+            if (err) {
+              console.error('Error dropping users table:', err.message);
+              reject(err);
+            } else {
+              console.log('Users table dropped successfully');
+              // Recreate tables by calling migrateDb
+              migrateDb(db).then(() => {
+                console.log('Database reset completed successfully');
+                resolve();
+              }).catch(reject);
+            }
+          });
         });
       });
     });

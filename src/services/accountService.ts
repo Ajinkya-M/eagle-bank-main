@@ -1,5 +1,5 @@
 import { db } from '../db/index';
-import { CreateBankAccountRequest, BankAccountResponse } from '../models/accountModel';
+import { CreateBankAccountRequest, BankAccountResponse, UpdateBankAccountRequest } from '../models/accountModel';
 
 // Function to generate a random 6-digit number for account number
 const generateAccountNumber = (): string => {
@@ -221,6 +221,77 @@ export const fetchAccountByAccountNumber = async (
     
   } catch (error) {
     console.error('Error fetching account from DB:', error);
+    throw error;
+  }
+}; 
+
+/**
+ * Update account by account number
+ */
+export const updateAccountByAccountNumber = async (
+  accountNumber: string,
+  updateData: Partial<UpdateBankAccountRequest>,
+  userId: string
+): Promise<BankAccountResponse | 'not-found' | 'forbidden'> => {
+  try {
+    // Fetch existing account & Authorization Check
+    const existingAccount = await fetchAccountByAccountNumber(accountNumber, userId);
+    
+    // If account not found or user not authorized, return the result
+    if (existingAccount === 'not-found' || existingAccount === 'forbidden') {
+      return existingAccount;
+    }
+
+    // Prepare dynamic SQL update
+    const setClauses: string[] = [];
+    const params: any[] = [];
+
+    // Iterate over updateData to build dynamic SET clause
+    for (const [key, value] of Object.entries(updateData)) {
+      if (key === 'name' || key === 'accountType') {
+        setClauses.push(`${key} = ?`);
+        params.push(value);
+      }
+    }
+
+    // Add updatedTimestamp
+    setClauses.push('updatedTimestamp = ?');
+    params.push(new Date().toISOString());
+
+    // If no fields to update, return the existing account
+    if (setClauses.length === 0) {
+      return existingAccount;
+    }
+
+    // Execute Update
+    const updateQuery = `UPDATE bank_accounts SET ${setClauses.join(', ')} WHERE accountNumber = ?`;
+    params.push(accountNumber);
+
+    await new Promise<void>((resolve, reject) => {
+      db.run(updateQuery, params, function(err) {
+        if (err) {
+          console.error('Database error updating bank account:', err);
+          reject(err);
+        } else {
+          console.log(`Bank account updated: ${this.changes} rows affected`);
+          resolve();
+        }
+      });
+    });
+
+    // Fetch and Return Updated Account
+    const updatedAccount = await fetchAccountByAccountNumber(accountNumber, userId);
+    
+    // This should not return 'not-found' or 'forbidden' if the previous check passed
+    if (updatedAccount === 'not-found' || updatedAccount === 'forbidden') {
+      console.error('Internal error: Account not found or forbidden after update');
+      throw new Error('Internal error: Account not found or forbidden after update');
+    }
+
+    return updatedAccount;
+
+  } catch (error) {
+    console.error('Error updating bank account:', error);
     throw error;
   }
 }; 
