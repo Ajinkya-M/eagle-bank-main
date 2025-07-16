@@ -182,15 +182,3 @@ src/
 
 The API conforms to the OpenAPI specification. You can find the `openapi.yaml` file in the project root.
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
